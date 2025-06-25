@@ -254,8 +254,8 @@ export default function Home({ cards }) {
         <div style={{ textAlign: 'center', color: '#888', fontSize: '18px', marginTop: '40px' }}>Nenhum documento nesta aba.</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {filteredCards.map((card, idx) => (
-            <Card card={card} key={idx} onLike={handleLike} onDislike={handleDislike} userId={userId} />
+          {filteredCards.map((card) => (
+            <Card card={card} key={card.filename} onLike={handleLike} onDislike={handleDislike} userId={userId} />
           ))}
         </div>
       )}
