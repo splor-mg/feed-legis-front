@@ -129,6 +129,7 @@ function LikeToast({ show }) {
 export default function Home({ cards }) {
   const [activeTab, setActiveTab] = useState('related');
   const [showLikeToast, setShowLikeToast] = useState(false);
+  const { isSignedIn, user } = useUser();
   const tabs = [
     { label: 'Relacionado', value: 'related' },
     { label: 'Não Relacionado', value: 'not_related' },
@@ -142,6 +143,34 @@ export default function Home({ cards }) {
 
   return (
     <div style={{ maxWidth: '950px', margin: '0 auto', padding: '32px 0', background: '#f5f6fa', minHeight: '100vh', fontFamily: 'Inter, Segoe UI, Roboto, Arial, sans-serif' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+        <div />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {isSignedIn ? (
+            <>
+              <span style={{ fontSize: '15px', color: '#333' }}>
+                Bem-vindo, {user.firstName || (user.emailAddresses && user.emailAddresses[0]?.emailAddress) || 'usuário'}!
+              </span>
+              <UserButton />
+            </>
+          ) : (
+            <SignInButton mode="modal">
+              <button style={{
+                padding: '8px 18px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                fontSize: '15px',
+                fontWeight: 500
+              }}>
+                Entrar
+              </button>
+            </SignInButton>
+          )}
+        </div>
+      </div>
       <h1 style={{ fontSize: '2.2rem', color: '#222', marginBottom: '36px', textAlign: 'center' }}>Documentos Legislativos</h1>
       <div style={{ display: 'flex', borderBottom: '2px solid #e0e0e0', marginBottom: '32px', gap: '8px', justifyContent: 'center' }}>
         {tabs.map(tab => (
