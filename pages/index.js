@@ -10,22 +10,38 @@ export async function getStaticProps() {
     const content = fs.readFileSync(path.join(dataDir, filename), 'utf-8');
     const json = JSON.parse(content);
     return {
-      institution_name: json.institution_name,
-      publication_date: json.publication_date,
-      publication_title: json.publication_title,
-      short_summary: json.short_summary,
-      classification_reason: json.classification_reason,
-      tags: json.tags,
-      classification: json.classification,
-      source_url: json.source_url,
+      ...json,
+      filename,
     };
   });
   return { props: { cards } };
 }
 
-function Card({ card, onLike, onDislike }) {
-  const [liked, setLiked] = useState(false);
-  const [disliked, setDisliked] = useState(false);
+function Card({ card, onLike, onDislike, userId }) {
+  const [liked, setLiked] = useState(card.up_votes?.includes(userId));
+  const [disliked, setDisliked] = useState(card.down_votes?.includes(userId));
+  const [upVotes, setUpVotes] = useState(card.up_votes?.length || 0);
+  const [downVotes, setDownVotes] = useState(card.down_votes?.length || 0);
+  const [loading, setLoading] = useState(false);
+
+  async function handleVote(type) {
+    if (!userId) return;
+    setLoading(true);
+    const res = await fetch('/api/vote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: card.filename, userId, voteType: type }),
+    });
+    const data = await res.json();
+    setUpVotes(Array.isArray(data.up_votes) ? data.up_votes.length : 0);
+    setDownVotes(Array.isArray(data.down_votes) ? data.down_votes.length : 0);
+    setLiked(type === 'up');
+    setDisliked(type === 'down');
+    setLoading(false);
+    if (type === 'up' && onLike) onLike();
+    if (type === 'down' && onDislike) onDislike();
+  }
+
   return (
     <div style={{
       background: '#fff',
@@ -61,16 +77,13 @@ function Card({ card, onLike, onDislike }) {
         <div style={{ color: '#444', fontSize: '15px' }}><b>tags:</b> {card.tags && card.tags.length > 0 ? card.tags.join(', ') : '-'}</div>
         <div style={{ flex: 1 }} />
         <button
-          onClick={() => {
-            setLiked(l => !l);
-            setDisliked(false);
-            if (!liked && onLike) onLike();
-          }}
+          onClick={() => handleVote('up')}
           aria-label={liked ? 'Desmarcar relevante' : 'Marcar como relevante'}
+          disabled={loading}
           style={{
             background: 'none',
             border: 'none',
-            cursor: 'pointer',
+            cursor: loading ? 'not-allowed' : 'pointer',
             outline: 'none',
             padding: 0,
             display: 'flex',
@@ -78,6 +91,7 @@ function Card({ card, onLike, onDislike }) {
             fontSize: '22px',
             transition: 'transform 0.1s',
             marginRight: 8,
+            opacity: loading ? 0.6 : 1,
           }}
         >
           <img
@@ -91,24 +105,23 @@ function Card({ card, onLike, onDislike }) {
               transition: 'opacity 0.2s, filter 0.2s',
             }}
           />
+          <span style={{ marginLeft: 6, fontWeight: 600, color: '#388e3c', fontSize: 16 }}>{upVotes}</span>
         </button>
         <button
-          onClick={() => {
-            setDisliked(d => !d);
-            setLiked(false);
-            if (!disliked && onDislike) onDislike();
-          }}
+          onClick={() => handleVote('down')}
           aria-label={disliked ? 'Desmarcar não relevante' : 'Marcar como não relevante'}
+          disabled={loading}
           style={{
             background: 'none',
             border: 'none',
-            cursor: 'pointer',
+            cursor: loading ? 'not-allowed' : 'pointer',
             outline: 'none',
             padding: 0,
             display: 'flex',
             alignItems: 'center',
             fontSize: '22px',
             transition: 'transform 0.1s',
+            opacity: loading ? 0.6 : 1,
           }}
         >
           <img
@@ -122,6 +135,7 @@ function Card({ card, onLike, onDislike }) {
               transition: 'opacity 0.2s, filter 0.2s',
             }}
           />
+          <span style={{ marginLeft: 6, fontWeight: 600, color: '#d32f2f', fontSize: 16 }}>{downVotes}</span>
         </button>
       </div>
     </div>
@@ -165,6 +179,7 @@ export default function Home({ cards }) {
   const [showLikeToast, setShowLikeToast] = useState(false);
   const [likeType, setLikeType] = useState('like');
   const { isSignedIn, user } = useUser();
+  const userId = user?.id;
   const tabs = [
     { label: 'Relacionado', value: 'related' },
     { label: 'Não Relacionado', value: 'not_related' },
@@ -240,7 +255,7 @@ export default function Home({ cards }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {filteredCards.map((card, idx) => (
-            <Card card={card} key={idx} onLike={handleLike} onDislike={handleDislike} />
+            <Card card={card} key={idx} onLike={handleLike} onDislike={handleDislike} userId={userId} />
           ))}
         </div>
       )}
