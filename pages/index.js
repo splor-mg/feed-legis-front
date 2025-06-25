@@ -1,266 +1,178 @@
 import { useState } from 'react';
 import { useUser, SignInButton, UserButton } from '@clerk/nextjs';
+import fs from 'fs';
+import path from 'path';
 
-function Home() {
-  const { isSignedIn, user } = useUser();
-  const [activeTab, setActiveTab] = useState(0);
-  const [newsData, setNewsData] = useState({
-    0: [
-      { id: 1, title: "New JavaScript framework released", upvotes: 15, downvotes: 3, votes: {} },
-      { id: 2, title: "React 19 beta now available", upvotes: 42, downvotes: 8, votes: {} },
-      { id: 3, title: "Web development trends for 2024", upvotes: 28, downvotes: 5, votes: {} },
-      { id: 4, title: "CSS Grid vs Flexbox comparison", upvotes: 33, downvotes: 12, votes: {} },
-    ],
-    1: [
-      { id: 5, title: "AI tools for developers", upvotes: 67, downvotes: 15, votes: {} },
-      { id: 6, title: "GitHub Copilot review", upvotes: 89, downvotes: 22, votes: {} },
-      { id: 7, title: "Machine learning in web apps", upvotes: 45, downvotes: 18, votes: {} },
-      { id: 8, title: "ChatGPT for coding assistance", upvotes: 76, downvotes: 31, votes: {} },
-    ],
-    2: [
-      { id: 9, title: "Next.js performance tips", upvotes: 52, downvotes: 7, votes: {} },
-      { id: 10, title: "Server-side rendering guide", upvotes: 38, downvotes: 9, votes: {} },
-      { id: 11, title: "Static site generation benefits", upvotes: 41, downvotes: 6, votes: {} },
-      { id: 12, title: "Deploying to Vercel tutorial", upvotes: 29, downvotes: 4, votes: {} },
-    ]
+export async function getStaticProps() {
+  const dataDir = path.join(process.cwd(), 'data');
+  const files = fs.readdirSync(dataDir).filter(f => f.endsWith('.json'));
+  const cards = files.map(filename => {
+    const content = fs.readFileSync(path.join(dataDir, filename), 'utf-8');
+    const json = JSON.parse(content);
+    return {
+      institution_name: json.institution_name,
+      publication_date: json.publication_date,
+      publication_title: json.publication_title,
+      short_summary: json.short_summary,
+      classification_reason: json.classification_reason,
+      tags: json.tags,
+      classification: json.classification,
+      source_url: json.source_url,
+    };
   });
+  return { props: { cards } };
+}
 
-  const handleVote = (tabIndex, newsId, voteType) => {
-    if (!isSignedIn) {
-      alert('Please sign in to vote!');
-      return;
-    }
-
-    const userId = user.id;
-    const currentNews = newsData[tabIndex].find(news => news.id === newsId);
-
-    // Check if user already voted on this news
-    if (currentNews.votes[userId]) {
-      const previousVote = currentNews.votes[userId];
-
-      // If same vote, remove it (toggle)
-      if (previousVote === voteType) {
-        setNewsData(prevData => ({
-          ...prevData,
-          [tabIndex]: prevData[tabIndex].map(news => {
-            if (news.id === newsId) {
-              const newVotes = { ...news.votes };
-              delete newVotes[userId];
-              return {
-                ...news,
-                [voteType]: news[voteType] - 1,
-                votes: newVotes
-              };
-            }
-            return news;
-          })
-        }));
-        return;
-      }
-
-      // If different vote, change it
-      setNewsData(prevData => ({
-        ...prevData,
-        [tabIndex]: prevData[tabIndex].map(news => {
-          if (news.id === newsId) {
-            return {
-              ...news,
-              [previousVote]: news[previousVote] - 1,
-              [voteType]: news[voteType] + 1,
-              votes: { ...news.votes, [userId]: voteType }
-            };
-          }
-          return news;
-        })
-      }));
-      return;
-    }
-
-    // New vote
-    setNewsData(prevData => ({
-      ...prevData,
-      [tabIndex]: prevData[tabIndex].map(news => {
-        if (news.id === newsId) {
-          return {
-            ...news,
-            [voteType]: news[voteType] + 1,
-            votes: { ...news.votes, [userId]: voteType }
-          };
-        }
-        return news;
-      })
-    }));
-  };
-
-  const getUserVote = (news) => {
-    if (!isSignedIn) return null;
-    return news.votes[user?.id] || null;
-  };
-
-  const tabs = [
-    { name: "Technology", index: 0 },
-    { name: "AI & ML", index: 1 },
-    { name: "Web Development", index: 2 }
-  ];
-
+function Card({ card, onLike }) {
+  const [liked, setLiked] = useState(false);
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-      {/* Header with Authentication */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ color: '#333', margin: 0 }}>
-          News Voting System
-        </h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {isSignedIn ? (
-            <>
-              <span style={{ fontSize: '14px', color: '#666' }}>
-                Welcome, {user.firstName || user.emailAddresses[0].emailAddress}!
-              </span>
-              <UserButton />
-            </>
-          ) : (
-            <SignInButton mode="modal">
-              <button style={{
-                padding: '8px 16px',
-                backgroundColor: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}>
-                Sign In to Vote
-              </button>
-            </SignInButton>
-          )}
+    <div style={{
+      background: '#fff',
+      borderRadius: '18px',
+      boxShadow: '0 4px 18px rgba(0,0,0,0.10)',
+      marginBottom: '36px',
+      padding: '36px',
+      maxWidth: '900px',
+      width: '100%',
+      margin: '0 auto',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '22px',
+      fontFamily: 'Inter, Segoe UI, Roboto, Arial, sans-serif',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '32px', marginBottom: '4px' }}>
+        <div style={{ fontWeight: 700, fontSize: '20px', color: '#1a237e', letterSpacing: '0.01em' }}>{card.institution_name}</div>
+        <div style={{ flex: 1 }} />
+        <div style={{ color: '#555', fontSize: '15px', fontWeight: 500, textAlign: 'right', minWidth: '180px' }}><b>Data Publicação:</b> {card.publication_date}</div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '32px', marginBottom: '0px' }}>
+        <div style={{ color: '#222', fontSize: '19px', fontWeight: 600 }}><b>Título:</b> {card.publication_title}</div>
+        <div style={{ flex: 1 }} />
+        <div style={{ minWidth: '200px', textAlign: 'right' }}>
+          <a href={card.source_url} target="_blank" rel="noopener noreferrer" style={{ color: '#1565c0', fontWeight: 500, textDecoration: 'underline', fontSize: '15px' }}>
+            Link para a Publicação
+          </a>
         </div>
       </div>
-
-      {/* Tab Navigation */}
-      <div style={{ display: 'flex', borderBottom: '2px solid #e0e0e0', marginBottom: '20px' }}>
-        {tabs.map((tab) => (
-          <button
-            key={tab.index}
-            onClick={() => setActiveTab(tab.index)}
+      <div style={{ color: '#333', fontSize: '16.5px', lineHeight: 1.7, whiteSpace: 'pre-line', background: '#f7f8fa', borderRadius: '8px', padding: '14px 18px' }}><b>Resumo:</b> <br />{card.short_summary}</div>
+      <div style={{ color: '#333', fontSize: '16.5px', lineHeight: 1.7, whiteSpace: 'pre-line', background: '#f7f8fa', borderRadius: '8px', padding: '14px 18px' }}><b>Justificativa:</b> <br />{card.classification_reason}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginTop: '2px' }}>
+        <div style={{ color: '#444', fontSize: '15px' }}><b>tags:</b> {card.tags && card.tags.length > 0 ? card.tags.join(', ') : '-'}</div>
+        <div style={{ flex: 1 }} />
+        <button
+          onClick={() => {
+            setLiked(l => !l);
+            if (!liked && onLike) onLike();
+          }}
+          aria-label={liked ? 'Desmarcar relevante' : 'Marcar como relevante'}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            outline: 'none',
+            padding: 0,
+            display: 'flex',
+            alignItems: 'center',
+            fontSize: '22px',
+            transition: 'transform 0.1s',
+          }}
+        >
+          <img
+            src="/images/thumbs_up.png"
+            alt={liked ? 'Curtido' : 'Curtir'}
             style={{
-              padding: '12px 24px',
-              border: 'none',
-              background: activeTab === tab.index ? '#007bff' : '#f8f9fa',
-              color: activeTab === tab.index ? 'white' : '#333',
-              cursor: 'pointer',
-              fontSize: '16px',
-              fontWeight: activeTab === tab.index ? 'bold' : 'normal',
-              borderTopLeftRadius: '8px',
-              borderTopRightRadius: '8px',
-              marginRight: '4px',
-              transition: 'all 0.3s ease'
+              width: 36,
+              height: 36,
+              opacity: liked ? 1 : 0.4,
+              filter: liked ? 'none' : 'grayscale(80%)',
+              transition: 'opacity 0.2s, filter 0.2s',
             }}
-          >
-            {tab.name}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
-      <div style={{ minHeight: '400px' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#f8f9fa' }}>
-              <th style={{ padding: '15px', textAlign: 'left', borderBottom: '2px solid #dee2e6', fontSize: '16px', fontWeight: 'bold' }}>
-                News
-              </th>
-              <th style={{ padding: '15px', textAlign: 'center', borderBottom: '2px solid #dee2e6', fontSize: '16px', fontWeight: 'bold', width: '200px' }}>
-                Vote
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {newsData[activeTab].map((news) => {
-              const userVote = getUserVote(news);
-              return (
-                <tr key={news.id} style={{ borderBottom: '1px solid #dee2e6' }}>
-                  <td style={{ padding: '15px', fontSize: '14px' }}>
-                    {news.title}
-                  </td>
-                  <td style={{ padding: '15px', textAlign: 'center' }}>
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
-                      <button
-                        onClick={() => handleVote(activeTab, news.id, 'upvotes')}
-                        style={{
-                          padding: '8px 12px',
-                          border: 'none',
-                          backgroundColor: userVote === 'upvotes' ? '#155724' : '#28a745',
-                          color: 'white',
-                          borderRadius: '4px',
-                          cursor: isSignedIn ? 'pointer' : 'not-allowed',
-                          fontSize: '12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          opacity: isSignedIn ? 1 : 0.6
-                        }}
-                        disabled={!isSignedIn}
-                      >
-                        👍 {news.upvotes}
-                      </button>
-                      <button
-                        onClick={() => handleVote(activeTab, news.id, 'downvotes')}
-                        style={{
-                          padding: '8px 12px',
-                          border: 'none',
-                          backgroundColor: userVote === 'downvotes' ? '#721c24' : '#dc3545',
-                          color: 'white',
-                          borderRadius: '4px',
-                          cursor: isSignedIn ? 'pointer' : 'not-allowed',
-                          fontSize: '12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          opacity: isSignedIn ? 1 : 0.6
-                        }}
-                        disabled={!isSignedIn}
-                      >
-                        👎 {news.downvotes}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        {!isSignedIn && (
-          <div style={{
-            textAlign: 'center',
-            marginTop: '20px',
-            padding: '20px',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '8px',
-            border: '1px solid #dee2e6'
-          }}>
-            <p style={{ margin: '0 0 15px 0', color: '#666' }}>
-              Sign in to vote on news articles and track your voting history!
-            </p>
-            <SignInButton mode="modal">
-              <button style={{
-                padding: '10px 20px',
-                backgroundColor: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '16px'
-              }}>
-                Sign In Now
-              </button>
-            </SignInButton>
-          </div>
-        )}
+          />
+        </button>
       </div>
     </div>
   );
 }
 
-// Define que Home é a saída padrão
-export default Home;
+function LikeToast({ show }) {
+  return (
+    <div style={{
+      position: 'fixed',
+      right: '32px',
+      bottom: show ? '32px' : '0px',
+      opacity: show ? 1 : 0,
+      pointerEvents: 'none',
+      background: '#fff',
+      color: '#388e3c',
+      border: '1.5px solid #b2dfdb',
+      borderRadius: '12px',
+      boxShadow: '0 4px 18px rgba(0,0,0,0.10)',
+      padding: '18px 32px',
+      fontSize: '17px',
+      fontWeight: 500,
+      zIndex: 9999,
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      transition: 'opacity 0.7s, bottom 0.7s',
+    }}>
+      <img
+        src="/images/thumbs_up.png"
+        alt="Curtido"
+        style={{ width: 32, height: 32, marginRight: 10, verticalAlign: 'middle' }}
+      />
+      Publicação marcada como relevante
+    </div>
+  );
+}
+
+export default function Home({ cards }) {
+  const [activeTab, setActiveTab] = useState('related');
+  const [showLikeToast, setShowLikeToast] = useState(false);
+  const tabs = [
+    { label: 'Relacionado', value: 'related' },
+    { label: 'Não Relacionado', value: 'not_related' },
+  ];
+  const filteredCards = cards.filter(card => card.classification === activeTab);
+
+  function handleLike() {
+    setShowLikeToast(true);
+    setTimeout(() => setShowLikeToast(false), 2200);
+  }
+
+  return (
+    <div style={{ maxWidth: '950px', margin: '0 auto', padding: '32px 0', background: '#f5f6fa', minHeight: '100vh', fontFamily: 'Inter, Segoe UI, Roboto, Arial, sans-serif' }}>
+      <h1 style={{ fontSize: '2.2rem', color: '#222', marginBottom: '36px', textAlign: 'center' }}>Documentos Legislativos</h1>
+      <div style={{ display: 'flex', borderBottom: '2px solid #e0e0e0', marginBottom: '32px', gap: '8px', justifyContent: 'center' }}>
+        {tabs.map(tab => (
+          <button
+            key={tab.value}
+            onClick={() => setActiveTab(tab.value)}
+            style={{
+              padding: '12px 32px',
+              border: 'none',
+              background: activeTab === tab.value ? '#007bff' : '#f8f9fa',
+              color: activeTab === tab.value ? 'white' : '#333',
+              cursor: 'pointer',
+              fontSize: '17px',
+              fontWeight: activeTab === tab.value ? 'bold' : 'normal',
+              borderTopLeftRadius: '8px',
+              borderTopRightRadius: '8px',
+              transition: 'all 0.3s',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      {filteredCards.length === 0 ? (
+        <div style={{ textAlign: 'center', color: '#888', fontSize: '18px', marginTop: '40px' }}>Nenhum documento nesta aba.</div>
+      ) : (
+        filteredCards.map((card, idx) => (
+          <Card card={card} key={idx} onLike={handleLike} />
+        ))
+      )}
+      <LikeToast show={showLikeToast} />
+    </div>
+  );
+}
