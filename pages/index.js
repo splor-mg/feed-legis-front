@@ -23,8 +23,9 @@ export async function getStaticProps() {
   return { props: { cards } };
 }
 
-function Card({ card, onLike }) {
+function Card({ card, onLike, onDislike }) {
   const [liked, setLiked] = useState(false);
+  const [disliked, setDisliked] = useState(false);
   return (
     <div style={{
       background: '#fff',
@@ -62,6 +63,7 @@ function Card({ card, onLike }) {
         <button
           onClick={() => {
             setLiked(l => !l);
+            setDisliked(false);
             if (!liked && onLike) onLike();
           }}
           aria-label={liked ? 'Desmarcar relevante' : 'Marcar como relevante'}
@@ -75,6 +77,7 @@ function Card({ card, onLike }) {
             alignItems: 'center',
             fontSize: '22px',
             transition: 'transform 0.1s',
+            marginRight: 8,
           }}
         >
           <img
@@ -89,12 +92,43 @@ function Card({ card, onLike }) {
             }}
           />
         </button>
+        <button
+          onClick={() => {
+            setDisliked(d => !d);
+            setLiked(false);
+            if (!disliked && onDislike) onDislike();
+          }}
+          aria-label={disliked ? 'Desmarcar não relevante' : 'Marcar como não relevante'}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            outline: 'none',
+            padding: 0,
+            display: 'flex',
+            alignItems: 'center',
+            fontSize: '22px',
+            transition: 'transform 0.1s',
+          }}
+        >
+          <img
+            src="/images/thumbs_down.png"
+            alt={disliked ? 'Não relevante' : 'Marcar como não relevante'}
+            style={{
+              width: 36,
+              height: 36,
+              opacity: disliked ? 1 : 0.4,
+              filter: disliked ? 'none' : 'grayscale(80%)',
+              transition: 'opacity 0.2s, filter 0.2s',
+            }}
+          />
+        </button>
       </div>
     </div>
   );
 }
 
-function LikeToast({ show }) {
+function LikeToast({ show, type }) {
   return (
     <div style={{
       position: 'fixed',
@@ -103,8 +137,8 @@ function LikeToast({ show }) {
       opacity: show ? 1 : 0,
       pointerEvents: 'none',
       background: '#fff',
-      color: '#388e3c',
-      border: '1.5px solid #b2dfdb',
+      color: type === 'like' ? '#388e3c' : '#d32f2f',
+      border: `1.5px solid ${type === 'like' ? '#b2dfdb' : '#ffcdd2'}`,
       borderRadius: '12px',
       boxShadow: '0 4px 18px rgba(0,0,0,0.10)',
       padding: '18px 32px',
@@ -117,11 +151,11 @@ function LikeToast({ show }) {
       transition: 'opacity 0.7s, bottom 0.7s',
     }}>
       <img
-        src="/images/thumbs_up.png"
-        alt="Curtido"
+        src={type === 'like' ? '/images/thumbs_up.png' : '/images/thumbs_down.png'}
+        alt={type === 'like' ? 'Curtido' : 'Não relevante'}
         style={{ width: 32, height: 32, marginRight: 10, verticalAlign: 'middle' }}
       />
-      Publicação marcada como relevante
+      {type === 'like' ? 'Publicação marcada como relevante' : 'Publicação marcada como não relevante'}
     </div>
   );
 }
@@ -129,6 +163,7 @@ function LikeToast({ show }) {
 export default function Home({ cards }) {
   const [activeTab, setActiveTab] = useState('related');
   const [showLikeToast, setShowLikeToast] = useState(false);
+  const [likeType, setLikeType] = useState('like');
   const { isSignedIn, user } = useUser();
   const tabs = [
     { label: 'Relacionado', value: 'related' },
@@ -137,13 +172,19 @@ export default function Home({ cards }) {
   const filteredCards = cards.filter(card => card.classification === activeTab);
 
   function handleLike() {
+    setLikeType('like');
+    setShowLikeToast(true);
+    setTimeout(() => setShowLikeToast(false), 2200);
+  }
+  function handleDislike() {
+    setLikeType('dislike');
     setShowLikeToast(true);
     setTimeout(() => setShowLikeToast(false), 2200);
   }
 
   return (
-    <div style={{ maxWidth: '950px', margin: '0 auto', padding: '32px 0', background: '#f5f6fa', minHeight: '100vh', fontFamily: 'Inter, Segoe UI, Roboto, Arial, sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+    <div style={{ /* maxWidth: '950px', */ width: '100%', margin: 0, padding: '32px 0', background: '#f5f6fa', minHeight: '100vh', fontFamily: 'Inter, Segoe UI, Roboto, Arial, sans-serif' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', paddingRight: 32 }}>
         <div />
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {isSignedIn ? (
@@ -197,11 +238,13 @@ export default function Home({ cards }) {
       {filteredCards.length === 0 ? (
         <div style={{ textAlign: 'center', color: '#888', fontSize: '18px', marginTop: '40px' }}>Nenhum documento nesta aba.</div>
       ) : (
-        filteredCards.map((card, idx) => (
-          <Card card={card} key={idx} onLike={handleLike} />
-        ))
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {filteredCards.map((card, idx) => (
+            <Card card={card} key={idx} onLike={handleLike} onDislike={handleDislike} />
+          ))}
+        </div>
       )}
-      <LikeToast show={showLikeToast} />
+      <LikeToast show={showLikeToast} type={likeType} />
     </div>
   );
 }
